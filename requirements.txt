@@ -1,0 +1,14 @@
+gradio 
+torch==2.4.1 --index-url https://download.pytorch.org/whl/cu121
+torchvision==0.19.1 
+torchaudio==2.4.1 
+datasets
+transformers
+peft
+accelerate
+pandas
+bitsandbytes>=0.43.0
+sentencepiece>=0.2.0
+protobuf>=3.20.0
+scipy>=1.10.0
+huggingface-hub
