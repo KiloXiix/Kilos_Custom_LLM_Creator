@@ -91,8 +91,11 @@ If you've made it this far without any errors, then a gradio interface should sh
 - Bigger models will go slower
 
 The average amount of time for an 8 billion paramter model on 8GB of vram is approximately 9-10 hours
+- ***Do NOT Go Off of The Training Time in the terminal***
+- ***The Actual Training Time Will Depends on How long your LLM Takes To Get Below 0.25 Loss***
+- Some models may finish in as little as 2 hours
 
-
+  
 # Results:
 - The result should be a gguf file named whatever you named the model.
 - This gguf should work directly with ollama. All you need to do is create a modelfile using the gguf file as the model you want to use.
