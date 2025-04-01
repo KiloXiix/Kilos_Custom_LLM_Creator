@@ -1,3 +1,9 @@
+# Setting Up The Virtual Environment
+# python -m venv .venv
+# .venv\Scripts\activate
+
+
+
 import os
 import gradio as gr
 import torch
@@ -289,7 +295,7 @@ def full_training_pipeline(base_model, dataset_file, system_prompt, model_name, 
         display_error(f"Training pipeline failed: {str(e)}")
 
 with gr.Blocks() as demo:
-    gr.Markdown("# 🦙 Custom LLM Trainer")
+    gr.Markdown("# 🦙 Kilo's Custom LLM Creator/Trainer")
     
     with gr.Row():
         with gr.Column():
