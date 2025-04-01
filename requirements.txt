@@ -7,7 +7,7 @@ transformers
 peft
 accelerate
 pandas
-bitsandbytes>=0.43.0
+bitsandbytes
 sentencepiece>=0.2.0
 protobuf>=3.20.0
 scipy>=1.10.0
