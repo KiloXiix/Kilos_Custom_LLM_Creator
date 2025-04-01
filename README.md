@@ -1,6 +1,22 @@
-# Kilos_Custom_LLM_Creator/Trainer
-A Streamlined Custom LLM Creator/Trainer
+# Kilos_Custom_LLM_Creator/Trainer (LLama Models Only)
+A Streamlined Custom LLM Creator/Trainer for LLama Models
 
+Only Models with the following chat template can be used:
+```
+PARAMETER stop "<|eot_id|>" 
+PARAMETER stop "\n<|start_header_id|>"
+PARAMETER stop "<|end_header_id|>" 
+
+
+TEMPLATE """
+<|start_header_id|>system<|end_header_id|>
+{{ .System }}<|eot_id|>
+<|start_header_id|>user<|end_header_id|>
+{{ .Prompt }}<|eot_id|>
+<|start_header_id|>assistant<|end_header_id|>
+{{ .Response }}<|eot_id|>
+"""
+```
 
 # How to use
 ## Step 1: Prep
