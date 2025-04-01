@@ -1,3 +1,8 @@
+# Setting Up The Virtual Environment
+# python -m venv .venv
+# .venv\Scripts\activate
+
+
 import os
 import gradio as gr
 import torch
