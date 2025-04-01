@@ -642,7 +642,7 @@ with gr.Blocks() as demo:
     with gr.Row():
         with gr.Column():
             base_model = gr.Textbox(
-                label="Base HuggingFace Model",
+                label="Base HuggingFace Model (LLama)",
                 value="cognitivecomputations/Dolphin3.0-Llama3.1-8B"
             )
             dataset = gr.File(label="Training Dataset (CSV)", file_types=[".csv"])
