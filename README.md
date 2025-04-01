@@ -55,7 +55,8 @@ If you did everything correctly, when you run the code for the first time, it sh
 
 ## Step 3: Using the Gradio Interface
 If you've made it this far without any errors, then a gradio interface should show up when you open the link in your browser looking like this:
-![image](https://github.com/user-attachments/assets/534d3c59-7e49-433c-b484-24576973a4ad)
+![image](https://github.com/user-attachments/assets/cdd7bbe8-abab-4269-9c6c-0dfaf944040a)
+
 
 - In the first box, you can choose your base model from huggingface that you want to train. The model you choose only matters for the information. The core personality will be rewritten in the following steps.
 - Next, Once you choose your model, paste it into the base model section and then upload your dataset into the dataset upload box.
