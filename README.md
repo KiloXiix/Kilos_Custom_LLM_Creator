@@ -57,28 +57,29 @@ If you did everything correctly, when you run the code for the first time, it sh
 If you've made it this far without any errors, then a gradio interface should show up when you open the link in your browser looking like this:
 ![image](https://github.com/user-attachments/assets/534d3c59-7e49-433c-b484-24576973a4ad)
 
-In the first box, you can choose your base model from huggingface that you want to train. The model you choose only matters for the information. The core personality will be rewritten in the following steps.
-Next, Once you choose your model, paste it into the base model section and then upload your dataset into the dataset upload box.
-Then, Create your own system prompt. This will be the instructions the model has to follow as well as any additional info you want to add that is not in the dataset.
- - The dataset is mainly for the core personality by use of the "style" tag as it will train itself on how to talk with the same speech pattern. The bigger the dataset, the better. Recommended dataset size is approximately 10,000 lines of speech style to really integrate the speech patterns into the AI.
-After creating your system prompt, give your AI a name. Try to use only Uppcase, LowerCase, and Underscores if possible.
+- In the first box, you can choose your base model from huggingface that you want to train. The model you choose only matters for the information. The core personality will be rewritten in the following steps.
+- Next, Once you choose your model, paste it into the base model section and then upload your dataset into the dataset upload box.
+- Then, Create your own system prompt. This will be the instructions the model has to follow as well as any additional info you want to add that is not in the dataset.
+  - The dataset is mainly for the core personality by use of the "style" tag as it will train itself on how to talk with the same speech pattern. The bigger the dataset, the better. Recommended dataset size is approximately 10,000 lines of speech style to really integrate the speech patterns into the AI.
+- After creating your system prompt, give your AI a name. Try to use only Uppcase, LowerCase, and Underscores if possible.
 
-Finally, don't forget the authentication box. This tells huggingface who you are so you can access their models.
+- Finally, don't forget the authentication box. This tells huggingface who you are so you can access their models.
 ![image](https://github.com/user-attachments/assets/58673e0c-b948-4f44-ad81-b5f0a54ed6cc)
-Here, you follow the link to get your Token and paste the token into the box before checking off that you acknowledge the terms and conditions of whatever model you chose and Click Train
+
+- Here, you follow the link to get your Token and paste the token into the box before checking off that you acknowledge the terms and conditions of whatever model you chose and Click Train
 
 ## Training Time Wait:
-At this point your model will begin training over all your data using your computer's resources.
-The better resources you have, the faster the training will go
-Bigger models will go slower
+- At this point your model will begin training over all your data using your computer's resources.
+- The better resources you have, the faster the training will go
+- Bigger models will go slower
 
 The average amount of time for an 8 billion paramter model on 8GB of vram is approximately 9-10 hours
 
 
 # Results:
-The result should be a gguf file named whatever you named the model.
-This gguf should work directly with ollama. All you need to do is create a modelfile using the gguf file as the model you want to use.
-This is how the modelfile should look:
+- The result should be a gguf file named whatever you named the model.
+- This gguf should work directly with ollama. All you need to do is create a modelfile using the gguf file as the model you want to use.
+- This is how the modelfile should look:
 
 ```
 # Set the base model
@@ -128,8 +129,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 """
 ```
 
-Then run the following command in your terminal where ollama is installed: `ollama create name_of_ai -f ./PATH_TO_YOUR_MODELFILE`
-Then: `ollama list' to see all your models
-And: `ollama run name_of_ai` to run your model and talk to it
+- Then run the following command in your terminal where ollama is installed: `ollama create name_of_ai -f ./PATH_TO_YOUR_MODELFILE`
+- Then: `ollama list' to see all your models
+- And: `ollama run name_of_ai` to run your model and talk to it
 
 
