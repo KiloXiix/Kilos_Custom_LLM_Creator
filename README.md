@@ -131,7 +131,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 - Then run the following command in your terminal where ollama is installed: `ollama create name_of_ai -f ./PATH_TO_YOUR_MODELFILE`
-- Then: `ollama list' to see all your models
+- Then: `ollama list` to see all your models
 - And: `ollama run name_of_ai` to run your model and talk to it
 
 
