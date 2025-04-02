@@ -1,22 +1,6 @@
-# Kilos_Custom_LLM_Creator/Trainer (LLama Models Only)
-A Streamlined Custom LLM Creator/Trainer for LLama Models
+# Kilos_Custom_LLM_Creator/Trainer (Universal?)
+A Possibly Universal Streamlined Custom LLM Creator/Trainer
 
-Only Models with the following chat template can be used:
-```
-PARAMETER stop "<|eot_id|>" 
-PARAMETER stop "\n<|start_header_id|>"
-PARAMETER stop "<|end_header_id|>" 
-
-
-TEMPLATE """
-<|start_header_id|>system<|end_header_id|>
-{{ .System }}<|eot_id|>
-<|start_header_id|>user<|end_header_id|>
-{{ .Prompt }}<|eot_id|>
-<|start_header_id|>assistant<|end_header_id|>
-{{ .Response }}<|eot_id|>
-"""
-```
 
 # How to use
 ## Step 1: Prep
@@ -92,7 +76,7 @@ If you've made it this far without any errors, then a gradio interface should sh
 
 The average amount of time for an 8 billion paramter model on 8GB of vram is approximately 9-10 hours
 - ***Do NOT Go Off of The Training Time in the terminal***
-- ***The Actual Training Time Will Depends on How long your LLM Takes To Get Below 0.25 Loss***
+- ***The Actual Training Time Will Depends on How long your LLM Takes To Get Below 0.26 Loss***
 - Some models may finish in as little as 2 hours
 
   
