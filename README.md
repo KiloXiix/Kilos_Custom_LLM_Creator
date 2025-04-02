@@ -7,9 +7,11 @@ A Possibly Universal Streamlined Custom LLM Creator/Trainer
 ### Base Model's Parameters
 - You will need the Stop Paramters and Template for whatever base model you're using.
 They will generally go into your modelfile like so:
-Deepseek:
 
-![image](https://github.com/user-attachments/assets/dd445d27-e808-497b-aaaf-604ea38a2866)
+Qwen:
+
+![image](https://github.com/user-attachments/assets/fd47fa5c-8b11-45cd-90cf-2196b5392d85)
+
 
 OR
 
