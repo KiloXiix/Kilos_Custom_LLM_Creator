@@ -610,41 +610,25 @@ def full_training_pipeline(base_model, dataset_file, system_prompt, model_name, 
         # In the full_training_pipeline function
 
         # Model merging with memory optimization
-        status_md.value = f"**Loading base model with memory optimization**"
+        # When loading the base model for merging, don't use quantization
+        status_md.value = f"**Loading base model for merging**"
         safe_progress(0.72, "Loading Model")
 
         try:
-            # Use 4-bit quantization for base model loading
-            if torch.cuda.is_available():
-                bnb_config = BitsAndBytesConfig(
-                    load_in_4bit=True,
-                    bnb_4bit_use_double_quant=True,
-                    bnb_4bit_quant_type="nf4",
-                    bnb_4bit_compute_dtype=torch.float16
-                )
-                
-                base_model_obj = AutoModelForCausalLM.from_pretrained(
-                    base_model,
-                    quantization_config=bnb_config,
-                    device_map="auto",
-                    token=hf_token,
-                    max_memory={0: "8GiB", "cpu": "20GiB"}
-                )
-            else:
-                base_model_obj = AutoModelForCausalLM.from_pretrained(
-                    base_model,
-                    torch_dtype=torch.float32,
-                    token=hf_token,
-                    device_map=None,
-                    low_cpu_mem_usage=True
-                )
+            # Use float16 but without 4-bit quantization for merging
+            base_model_obj = AutoModelForCausalLM.from_pretrained(
+                base_model,
+                torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+                device_map="auto" if torch.cuda.is_available() else None,
+                token=hf_token,
+                low_cpu_mem_usage=True
+            )
         except RuntimeError as e:
             if "CUDA out of memory" in str(e) and torch.cuda.is_available():
-                # If still OOM, try CPU-only approach
+                # If OOM on GPU, try CPU loading
                 status_md.value = "⚠️ **GPU memory full - Falling back to CPU**"
                 safe_progress(0.72, "Optimizing Memory")
                 
-                # Reset CUDA cache
                 torch.cuda.empty_cache()
                 import gc
                 gc.collect()
@@ -665,21 +649,15 @@ def full_training_pipeline(base_model, dataset_file, system_prompt, model_name, 
         base_model_obj.resize_token_embeddings(len(tokenizer))
 
         # Load adapter with safe mapping
-        status_md.value = "**Loading adapter with memory optimization**"
+        # When loading the adapter, also avoid quantization
+        status_md.value = "**Loading adapter model**"
         safe_progress(0.74, "Loading Adapter")
-        if torch.cuda.is_available():
-            model = PeftModel.from_pretrained(
-                base_model_obj, 
-                output_dir,
-                device_map="auto",  # Use auto mapping for adapter
-                max_memory={0: "8GiB", "cpu": "20GiB"}
-            )
-        else:
-            model = PeftModel.from_pretrained(
-                base_model_obj, 
-                output_dir,
-                device_map=None  # Force CPU
-            )
+        
+        model = PeftModel.from_pretrained(
+            base_model_obj, 
+            output_dir,
+            device_map="auto" if torch.cuda.is_available() else None,
+        )
 
         # Merge with memory monitoring
         status_md.value = "**Merging adapter with base model**"
@@ -719,14 +697,20 @@ def full_training_pipeline(base_model, dataset_file, system_prompt, model_name, 
                 raise e
 
         # Save the merged model
-        status_md.value = f"**Saving merged model**"
-        safe_progress(0.77, "Saving")
-
-        # Move to CPU for saving if necessary
-        if next(merged_model.parameters()).device.type != "cpu":
-            merged_model.to("cpu")
-                    
-        merged_model.save_pretrained(merged_dir)
+        # When saving the merged model, ensure it's in full precision
+        status_md.value = "**Saving merged model in full precision for conversion**"
+        safe_progress(0.77, "Saving Model")
+        
+        # Always save in float16 format for GGUF compatibility
+        merged_model = merged_model.to(torch.float16)
+        merged_model.to("cpu")  # Move to CPU for saving
+        
+        # Save in float16 format
+        merged_model.save_pretrained(
+            merged_dir,
+            safe_serialization=True,
+            max_shard_size="2GB"  # Ensure reasonable shard sizes
+        )
         tokenizer.save_pretrained(merged_dir)
 
         # 3. Convert to GGUF
