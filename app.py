@@ -259,19 +259,26 @@ def train_model(base_model, dataset_path, system_prompt, output_dir, hf_token, p
             gr.Warning("No GPU detected - Training on CPU (much slower). For better performance use a GPU-enabled environment.")
         else:
             update_progress(progress_fn, status_md, f"🖥️ Training on GPU: {torch.cuda.get_device_name(0)}", 0.21, "Hardware Check")
+            update_progress(progress_fn, status_md, f"Free GPU memory: {torch.cuda.mem_get_info()[0]/1e9:.2f} GB", 0.22, "Memory Check")
 
-        # Configure quantization
-        bnb_config = None if use_cpu else BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_use_double_quant=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.float16
-        )
-        torch_dtype = torch.float32 if use_cpu else torch.float16
-        device_map = None if use_cpu else "auto"
+        # Force 4-bit quantization for memory efficiency
+        update_progress(progress_fn, status_md, "Configuring 4-bit quantization for memory efficiency", 0.23, "Memory Optimization")
+        
+        # Always use 4-bit quantization for large models on GPU
+        bnb_config = None
+        if not use_cpu:
+            bnb_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch.float16
+            )
+        
+        # Configure the data type based on available hardware
+        torch_dtype = torch.float16 if not use_cpu else torch.float32
 
-        # Load tokenizer with template validation
-        update_progress(progress_fn, status_md, f"Loading tokenizer from {base_model}", 0.23, "Loading Tokenizer")
+        # Load tokenizer
+        update_progress(progress_fn, status_md, f"Loading tokenizer from {base_model}", 0.24, "Loading Tokenizer")
         tokenizer = AutoTokenizer.from_pretrained(
             base_model, 
             legacy=False, 
@@ -280,7 +287,6 @@ def train_model(base_model, dataset_path, system_prompt, output_dir, hf_token, p
         )
         
         # Configure special tokens
-        special_tokens = {}
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
         if tokenizer.chat_template is None:
@@ -315,41 +321,59 @@ def train_model(base_model, dataset_path, system_prompt, output_dir, hf_token, p
         
         dataset = prepare_dataset(dataset_path, system_prompt, tokenizer)
 
-        # Model loading
-        update_progress(progress_fn, status_md, f"Loading model from {base_model}", 0.25, "Loading Model")
+       # Model loading with maximum memory optimization
+        update_progress(progress_fn, status_md, f"Loading model with memory optimizations", 0.25, "Loading Model")
+        
+        model_kwargs = {
+            "token": hf_token,
+            "torch_dtype": torch_dtype,
+        }
+        
+        if not use_cpu:
+            # GPU path with quantization and device map
+            model_kwargs.update({
+                "quantization_config": bnb_config,
+                "device_map": "auto",
+                "max_memory": {0: "8GiB", "cpu": "20GiB"}
+            })
+        else:
+            # CPU path
+            model_kwargs.update({
+                "device_map": None,
+                "low_cpu_mem_usage": True
+            })
+            
         model = AutoModelForCausalLM.from_pretrained(
             base_model,
-            quantization_config=bnb_config,
-            device_map=device_map,
-            torch_dtype=torch_dtype,
-            token=hf_token,
-            low_cpu_mem_usage=not use_cpu
+            **model_kwargs
         )
 
         # Prepare for training
         update_progress(progress_fn, status_md, "Preparing model for training", 0.27, "Setup")
-        if not use_cpu:
+        
+        # Only run prepare_model_for_kbit_training if using quantization
+        if not use_cpu and bnb_config is not None:
             model = prepare_model_for_kbit_training(model)
         
-        # LoRA configuration
+        # LoRA configuration - use more conservative values to save memory
         lora_config = LoraConfig(
-            r=16,
-            lora_alpha=32,
-            target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
+            r=8,  # Reduced from 16 to save memory
+            lora_alpha=16,  # Reduced from 32 to save memory
+            target_modules=["q_proj", "v_proj"],  # Reduced target modules
             lora_dropout=0.05,
             bias="none",
             task_type="CAUSAL_LM"
         )
         model = get_peft_model(model, lora_config)
 
-        # Tokenization function
+        # Tokenization function - use a smaller context length to save memory
         update_progress(progress_fn, status_md, "Tokenizing dataset", 0.29, "Preprocessing")
         def tokenize_function(examples):
             tokenized = tokenizer(
                 examples['text'],
                 truncation=True,
                 padding='max_length',
-                max_length=384,
+                max_length=256,  # Reduced from 384 to save memory
                 return_tensors='pt'
             )
             tokenized["labels"] = tokenized["input_ids"].clone()
@@ -361,12 +385,12 @@ def train_model(base_model, dataset_path, system_prompt, output_dir, hf_token, p
             remove_columns=['text']
         )
 
-        # Training configuration
-        update_progress(progress_fn, status_md, "Setting up training arguments", 0.3, "Configuration")
+        # Training configuration - use smaller batch sizes and more gradient accumulation
+        update_progress(progress_fn, status_md, "Setting up training with memory-optimized parameters", 0.3, "Configuration")
         training_args = TrainingArguments(
             output_dir=output_dir,
-            per_device_train_batch_size=2 if not use_cpu else 1,
-            gradient_accumulation_steps=16 if not use_cpu else 8,
+            per_device_train_batch_size=1,  # Reduced from 2 to save memory
+            gradient_accumulation_steps=32,  # Increased from 16 to compensate for smaller batch
             learning_rate=2e-5,
             fp16=not use_cpu,
             bf16=False,
@@ -374,8 +398,8 @@ def train_model(base_model, dataset_path, system_prompt, output_dir, hf_token, p
             max_steps=2000,
             logging_steps=10,
             save_steps=500,
-            save_total_limit=2,
-            gradient_checkpointing=not use_cpu,
+            save_total_limit=1,  # Save fewer checkpoints to save disk space
+            gradient_checkpointing=True,  # Always use gradient checkpointing to save memory
             optim="adamw_torch",
             report_to="none",
             remove_unused_columns=False,
@@ -393,6 +417,11 @@ def train_model(base_model, dataset_path, system_prompt, output_dir, hf_token, p
             data_collator=DataCollatorForLanguageModeling(tokenizer, mlm=False),
             callbacks=[progress_callback]
         )
+
+        # Add explicit garbage collection before training
+        import gc
+        gc.collect()
+        torch.cuda.empty_cache()
 
         update_progress(progress_fn, status_md, "Starting training", 0.3, "Training Model")
         trainer.train()
@@ -444,7 +473,7 @@ def convert_to_gguf(merged_model_path, gguf_path, progress_fn, status_md):
             merged_model_path,
             "--outfile", gguf_path,
             "--outtype", "f16",
-            "--vocab-type", "auto"  # Critical fix for Llama-style models
+            "--vocab-type", "auto" 
         ]
         print(f"Running conversion command: {' '.join(cmd)}")
         
@@ -543,22 +572,22 @@ def full_training_pipeline(base_model, dataset_file, system_prompt, model_name, 
         safe_progress(0.715, "Loading Tokenizer")
         tokenizer = AutoTokenizer.from_pretrained(output_dir)
         
-        # Try loading base model on GPU first
         status_md.value = f"**Loading base model with GPU optimization**"
         safe_progress(0.72, "Loading Model")
-        
+
         try:
             base_model_obj = AutoModelForCausalLM.from_pretrained(
                 base_model,
-                torch_dtype=torch.float16,
-                token=hf_token,
+                torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
                 device_map="auto",
-                max_memory={0: "7GB"}  # Reserve 1GB for system
+                token=hf_token,
+                offload_folder="offload",
+                max_memory={0: "7GB", "cpu": "16GB"} if torch.cuda.is_available() else None
             )
         except RuntimeError as e:
             if "CUDA out of memory" in str(e):
-                # Fallback to CPU offloading
-                status_md.value = "⚠️ **GPU memory full - Offloading to CPU**"
+                # Fallback to more aggressive CPU offloading
+                status_md.value = "⚠️ **GPU memory full - Increasing CPU offloading**"
                 safe_progress(0.72, "Optimizing Memory")
                 
                 base_model_obj = AutoModelForCausalLM.from_pretrained(
@@ -573,33 +602,113 @@ def full_training_pipeline(base_model, dataset_file, system_prompt, model_name, 
             else:
                 raise e
 
+        # In the full_training_pipeline function
+
+        # Model merging with memory optimization
+        status_md.value = f"**Loading base model with memory optimization**"
+        safe_progress(0.72, "Loading Model")
+
+        try:
+            # Use 4-bit quantization for base model loading
+            if torch.cuda.is_available():
+                bnb_config = BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_use_double_quant=True,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_compute_dtype=torch.float16
+                )
+                
+                base_model_obj = AutoModelForCausalLM.from_pretrained(
+                    base_model,
+                    quantization_config=bnb_config,
+                    device_map="auto",
+                    token=hf_token,
+                    max_memory={0: "8GiB", "cpu": "20GiB"}
+                )
+            else:
+                base_model_obj = AutoModelForCausalLM.from_pretrained(
+                    base_model,
+                    torch_dtype=torch.float32,
+                    token=hf_token,
+                    device_map=None,
+                    low_cpu_mem_usage=True
+                )
+        except RuntimeError as e:
+            if "CUDA out of memory" in str(e) and torch.cuda.is_available():
+                # If still OOM, try CPU-only approach
+                status_md.value = "⚠️ **GPU memory full - Falling back to CPU**"
+                safe_progress(0.72, "Optimizing Memory")
+                
+                # Reset CUDA cache
+                torch.cuda.empty_cache()
+                import gc
+                gc.collect()
+                
+                base_model_obj = AutoModelForCausalLM.from_pretrained(
+                    base_model,
+                    torch_dtype=torch.float32,
+                    token=hf_token,
+                    device_map=None  # Force CPU
+                )
+            else:
+                raise e
+
         # Resize embeddings
+        tokenizer = AutoTokenizer.from_pretrained(output_dir)
         status_md.value = "**Resizing base model token embeddings**"
         safe_progress(0.73, "Preparing Model")
         base_model_obj.resize_token_embeddings(len(tokenizer))
-        
-        # Load adapter with same device mapping
-        status_md.value = "**Loading adapter**"
+
+        # Load adapter with safe mapping
+        status_md.value = "**Loading adapter with memory optimization**"
         safe_progress(0.74, "Loading Adapter")
-        model = PeftModel.from_pretrained(
-            base_model_obj, 
-            output_dir,
-            device_map=base_model_obj.device_map if hasattr(base_model_obj, 'device_map') else None
-        )
+        if torch.cuda.is_available():
+            model = PeftModel.from_pretrained(
+                base_model_obj, 
+                output_dir,
+                device_map="auto",  # Use auto mapping for adapter
+                max_memory={0: "8GiB", "cpu": "20GiB"}
+            )
+        else:
+            model = PeftModel.from_pretrained(
+                base_model_obj, 
+                output_dir,
+                device_map=None  # Force CPU
+            )
 
         # Merge with memory monitoring
         status_md.value = "**Merging adapter with base model**"
         safe_progress(0.75, "Merging")
-        
+
         try:
+            # Try to merge
             merged_model = model.merge_and_unload()
         except RuntimeError as e:
-            if "CUDA out of memory" in str(e):
-                status_md.value = "⚠️ **GPU memory full - Retrying merge on CPU**"
+            if "CUDA out of memory" in str(e) and torch.cuda.is_available():
+                status_md.value = "⚠️ **GPU memory full - Merging on CPU**"
                 safe_progress(0.75, "Memory Optimization")
                 
-                model = model.to('cpu')
-                base_model_obj = base_model_obj.to('cpu')
+                # Clean up memory
+                del model
+                del base_model_obj
+                torch.cuda.empty_cache()
+                gc.collect()
+                
+                # Recreate on CPU
+                base_model_obj = AutoModelForCausalLM.from_pretrained(
+                    base_model,
+                    torch_dtype=torch.float32,
+                    token=hf_token,
+                    device_map=None  # Force CPU
+                )
+                base_model_obj.resize_token_embeddings(len(tokenizer))
+                
+                model = PeftModel.from_pretrained(
+                    base_model_obj, 
+                    output_dir,
+                    device_map=None  # Force CPU
+                )
+                
                 merged_model = model.merge_and_unload()
             else:
                 raise e
@@ -607,10 +716,11 @@ def full_training_pipeline(base_model, dataset_file, system_prompt, model_name, 
         # Save the merged model
         status_md.value = f"**Saving merged model**"
         safe_progress(0.77, "Saving")
-        
-        if not str(next(merged_model.parameters()).device).startswith('cpu'):
-            merged_model = merged_model.to('cpu')
-            
+
+        # Move to CPU for saving if necessary
+        if next(merged_model.parameters()).device.type != "cpu":
+            merged_model.to("cpu")
+                    
         merged_model.save_pretrained(merged_dir)
         tokenizer.save_pretrained(merged_dir)
 
