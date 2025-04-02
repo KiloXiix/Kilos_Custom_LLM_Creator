@@ -247,7 +247,7 @@ def check_model_requirements(model_id, agree_to_terms, hf_token, progress_fn, st
         else:
             display_error(f"Verification failed: {str(e)}", status_md)
 
-def train_model(base_model, dataset_path, system_prompt, output_dir, hf_token, progress_fn, status_md, loss_chart):
+def train_model(base_model, dataset_paths, system_prompt, output_dir, hf_token, progress_fn, status_md, loss_chart):
     """Universal model training with dynamic template handling"""
     try:
         torch.cuda.empty_cache()
@@ -300,32 +300,53 @@ def train_model(base_model, dataset_path, system_prompt, output_dir, hf_token, p
 
         # Dataset preparation with dynamic templating
         update_progress(progress_fn, status_md, "Preparing dataset with model's template", 0.24, "Dataset Setup")
-        def prepare_dataset(csv_path, system_prompt, tokenizer):
-            df = pd.read_csv(csv_path)
-            conversations = []
+        # Modify the dataset preparation function
+        def prepare_dataset(dataset_paths, system_prompt, tokenizer):
+            """Prepare dataset from multiple CSV/TXT files"""
+            all_conversations = []
             
-            for _, row in df.iterrows():
-                clean_response = row['text'].split("-éveré")[0].strip() if "-éveré" in row['text'] else row['text'].strip()
-                
-                # Create message structure
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": "Generate a response" if row['type'] == 'style' else "Tell me about yourself"},
-                    {"role": "assistant", "content": clean_response}
-                ]
-                
-                # Apply model's chat template
-                text = tokenizer.apply_chat_template(
-                    messages,
-                    tokenize=False,
-                    add_generation_prompt=True
-                )
-                
-                conversations.append({"text": text})
-            
-            return Dataset.from_pandas(pd.DataFrame(conversations))
+            for dataset_path in dataset_paths:
+                if dataset_path.endswith('.txt'):
+                    # Process text file as knowledge base
+                    with open(dataset_path, 'r', encoding='utf-8') as f:
+                        content = f.read().strip()
+                    
+                    # Create knowledge-based conversation
+                    messages = [
+                        {"role": "system", "content": f"You know the following information: {content}"},
+                        {"role": "user", "content": "What do you know about this topic?"},
+                        {"role": "assistant", "content": content}
+                    ]
+                    
+                    text = tokenizer.apply_chat_template(
+                        messages,
+                        tokenize=False,
+                        add_generation_prompt=True
+                    )
+                    all_conversations.append({"text": text})
+                    
+                elif dataset_path.endswith('.csv'):
+                    # Process CSV file for style/personality
+                    df = pd.read_csv(dataset_path)
+                    for _, row in df.iterrows():
+                        clean_response = row['text'].split("-éveré")[0].strip() if "-éveré" in row['text'] else row['text'].strip()
+                        
+                        messages = [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": "Generate a response" if row['type'] == 'style' else "Tell me about yourself"},
+                            {"role": "assistant", "content": clean_response}
+                        ]
+                        
+                        text = tokenizer.apply_chat_template(
+                            messages,
+                            tokenize=False,
+                            add_generation_prompt=True
+                        )
+                        all_conversations.append({"text": text})
+                        
+            return Dataset.from_pandas(pd.DataFrame(all_conversations))
         
-        dataset = prepare_dataset(dataset_path, system_prompt, tokenizer)
+        dataset = prepare_dataset(dataset_paths, system_prompt, tokenizer)
 
        # Model loading with maximum memory optimization
         update_progress(progress_fn, status_md, f"Loading model with memory optimizations", 0.25, "Loading Model")
@@ -349,8 +370,10 @@ def train_model(base_model, dataset_path, system_prompt, output_dir, hf_token, p
                 "low_cpu_mem_usage": True
             })
             
+        # When loading the base model for training
         model = AutoModelForCausalLM.from_pretrained(
             base_model,
+            trust_remote_code=True,  # Add this line
             **model_kwargs
         )
 
@@ -615,13 +638,14 @@ def full_training_pipeline(base_model, dataset_file, system_prompt, model_name, 
         safe_progress(0.72, "Loading Model")
 
         try:
-            # Use float16 but without 4-bit quantization for merging
+            # Modified model loading with trust_remote_code and device_map=None
             base_model_obj = AutoModelForCausalLM.from_pretrained(
                 base_model,
                 torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-                device_map="auto" if torch.cuda.is_available() else None,
+                device_map=None,  # <- Changed from "auto"
                 token=hf_token,
-                low_cpu_mem_usage=True
+                low_cpu_mem_usage=True,
+                trust_remote_code=True  # <- Added line
             )
         except RuntimeError as e:
             if "CUDA out of memory" in str(e) and torch.cuda.is_available():
@@ -677,12 +701,13 @@ def full_training_pipeline(base_model, dataset_file, system_prompt, model_name, 
                 torch.cuda.empty_cache()
                 gc.collect()
                 
-                # Recreate on CPU
+                # Recreate on CPU with modified parameters
                 base_model_obj = AutoModelForCausalLM.from_pretrained(
                     base_model,
                     torch_dtype=torch.float32,
                     token=hf_token,
-                    device_map=None  # Force CPU
+                    device_map=None,  # <- Ensure full CPU loading
+                    trust_remote_code=True  # <- Added line
                 )
                 base_model_obj.resize_token_embeddings(len(tokenizer))
                 
@@ -712,6 +737,11 @@ def full_training_pipeline(base_model, dataset_file, system_prompt, model_name, 
             max_shard_size="2GB"  # Ensure reasonable shard sizes
         )
         tokenizer.save_pretrained(merged_dir)
+
+        # Added verification step
+        print("Verifying merged model structure...")
+        if not hasattr(merged_model.model.model.layers[0], 'input_layernorm'):
+            raise AttributeError("Merged model missing expected layer structure")
 
         # 3. Convert to GGUF
         status_md.value = "**Step 3: Converting to GGUF format**"
@@ -750,7 +780,11 @@ with gr.Blocks() as demo:
                 label="Base Model",
                 value="cognitivecomputations/Dolphin3.0-Llama3.1-8B"
             )
-            dataset = gr.File(label="Training Dataset (CSV)", file_types=[".csv"])
+            dataset = gr.File(
+                label="Training Data (CSV/TXT)", 
+                file_types=[".csv", ".txt"], 
+                file_count="multiple"
+            )
             system_prompt = gr.Textbox(
                 label="System Prompt",
                 lines=8,
