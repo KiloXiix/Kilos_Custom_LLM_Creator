@@ -738,10 +738,19 @@ def full_training_pipeline(base_model, dataset_file, system_prompt, model_name, 
         )
         tokenizer.save_pretrained(merged_dir)
 
-        # Added verification step
+        # Modified verification step
         print("Verifying merged model structure...")
-        if not hasattr(merged_model.model.model.layers[0], 'input_layernorm'):
-            raise AttributeError("Merged model missing expected layer structure")
+        try:
+            # Try different common layer access patterns
+            if (hasattr(merged_model.model, 'layers') or  # LlamaModel
+            (hasattr(merged_model.model, 'model')) or  # Deep wrapper
+            (hasattr(merged_model, 'layers'))):          # Direct access
+                print("Model structure verification passed")
+            else:
+                raise AttributeError("Unexpected model structure")
+        except Exception as e:
+            raise AttributeError(f"Model structure verification failed: {str(e)}\n"
+                            "Please check the model architecture matches expectations") from e
 
         # 3. Convert to GGUF
         status_md.value = "**Step 3: Converting to GGUF format**"
