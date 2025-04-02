@@ -21,6 +21,8 @@ LLama:
 ![image](https://github.com/user-attachments/assets/e8dfe22f-18ea-4b2e-a87e-8036db1ec128)
 
 
+- ***This Program ONLY works with models that have a chat template built into their tokenizer as of right now***
+
 ### The Dataset (CSV or TXT or Both)
 First you need to obtain your own dataset or datasets to train the model on.
 It will only work if formatted as follows:
