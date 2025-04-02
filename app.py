@@ -444,7 +444,7 @@ def convert_to_gguf(merged_model_path, gguf_path, progress_fn, status_md):
             merged_model_path,
             "--outfile", gguf_path,
             "--outtype", "f16",
-            "--vocab-type", "bpe"  # Critical fix for Llama-style models
+            "--vocab-type", "auto"  # Critical fix for Llama-style models
         ]
         print(f"Running conversion command: {' '.join(cmd)}")
         
