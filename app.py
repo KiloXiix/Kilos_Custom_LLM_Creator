@@ -286,6 +286,12 @@ def train_model(base_model, dataset_path, system_prompt, output_dir, hf_token, p
             token=hf_token
         )
         
+        
+        # Save the original vocabulary size to a file - ADD THIS
+        with open(os.path.join(output_dir, "original_vocab_size.txt"), "w") as f:
+            f.write(str(len(tokenizer)))
+
+
         # Configure special tokens
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
@@ -389,8 +395,8 @@ def train_model(base_model, dataset_path, system_prompt, output_dir, hf_token, p
         update_progress(progress_fn, status_md, "Setting up training with memory-optimized parameters", 0.3, "Configuration")
         training_args = TrainingArguments(
             output_dir=output_dir,
-            per_device_train_batch_size=1,  # Reduced from 2 to save memory
-            gradient_accumulation_steps=32,  # Increased from 16 to compensate for smaller batch
+            per_device_train_batch_size=2,  # Either 1 or 2 for larger models
+            gradient_accumulation_steps=16,  # Either 16 or 32 for larger models
             learning_rate=2e-5,
             fp16=not use_cpu,
             bf16=False,
@@ -472,8 +478,7 @@ def convert_to_gguf(merged_model_path, gguf_path, progress_fn, status_md):
             llama_script,
             merged_model_path,
             "--outfile", gguf_path,
-            "--outtype", "f16",
-            "--vocab-type", "auto" 
+            "--outtype", "f16"
         ]
         print(f"Running conversion command: {' '.join(cmd)}")
         
