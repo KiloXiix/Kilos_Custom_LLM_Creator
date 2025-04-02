@@ -8,9 +8,10 @@ A Possibly Universal Streamlined Custom LLM Creator/Trainer
 - You will need the Stop Paramters and Template for whatever base model you're using.
 They will generally go into your modelfile like so:
 
-Qwen:
+DeepSeek-R1-Distill-Qwen-1.5B:
 
-![image](https://github.com/user-attachments/assets/fd47fa5c-8b11-45cd-90cf-2196b5392d85)
+![image](https://github.com/user-attachments/assets/81983e3c-7ede-4d98-b688-18045d3434f3)
+
 
 
 OR
