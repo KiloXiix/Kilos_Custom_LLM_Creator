@@ -76,7 +76,7 @@ If you've made it this far without any errors, then a gradio interface should sh
 - The better resources you have, the faster the training will go
 - Bigger models will go slower
 
-The average amount of time for an 8 billion paramter model on 8GB of vram is approximately 9-10 hours
+The average amount of time for an 8 billion paramter model on 8GB of vram and 32GB of cpu ram is approximately 2-3 hours
 - ***Do NOT Go Off of The Training Time in the terminal***
 - ***The Actual Training Time Will Depends on How long your LLM Takes To Get Below 0.26 Loss***
 - Some models may finish in as little as 2 hours
