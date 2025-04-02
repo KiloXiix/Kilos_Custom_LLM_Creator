@@ -4,14 +4,16 @@ A Possibly Universal Streamlined Custom LLM Creator/Trainer
 
 # How to use
 ## Step 1: Prep
-### The Dataset
-First you need to obtain your own dataset to train the model on.
+### The Dataset (CSV or TXT)
+First you need to obtain your own dataset or datasets to train the model on.
 It will only work if formatted as follows:
-- CSV file
+- CSV file (Personality and core attributes)
 - The following Collumns: speaker, text, type
   - Speaker is the name of the speaker in the dataset
   - text is the actual message from the speaker
   - type is either "style" or "info"
+- TXT file (Knowledge Base)
+  - Can be a text file with just pure information
 
 You can open the csv file in a normal text editor like vscode.
 This is how it should look:
