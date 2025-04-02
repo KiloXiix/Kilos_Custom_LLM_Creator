@@ -4,6 +4,20 @@ A Possibly Universal Streamlined Custom LLM Creator/Trainer
 
 # How to use
 ## Step 1: Prep
+### Base Model's Parameters
+- You will need the Stop Paramters and Template for whatever base model you're using.
+They will generally go into your modelfile like so:
+Deepseek:
+
+![image](https://github.com/user-attachments/assets/dd445d27-e808-497b-aaaf-604ea38a2866)
+
+OR
+
+LLama:
+
+![image](https://github.com/user-attachments/assets/e8dfe22f-18ea-4b2e-a87e-8036db1ec128)
+
+
 ### The Dataset (CSV or TXT or Both)
 First you need to obtain your own dataset or datasets to train the model on.
 It will only work if formatted as follows:
