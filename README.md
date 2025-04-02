@@ -4,7 +4,7 @@ A Possibly Universal Streamlined Custom LLM Creator/Trainer
 
 # How to use
 ## Step 1: Prep
-### The Dataset (CSV or TXT)
+### The Dataset (CSV or TXT or Both)
 First you need to obtain your own dataset or datasets to train the model on.
 It will only work if formatted as follows:
 - CSV file (Personality and core attributes)
