@@ -214,6 +214,7 @@ Then once you have the new model with the chat template built into the tokenizer
 6. Then to use with ollama, you'll need to update your modelfile to match the chat_template now like so:
 
 
-![image](https://github.com/user-attachments/assets/46136ccb-4e32-4a92-94e3-e301d7f8a0a9)
+![image](https://github.com/user-attachments/assets/b87baddf-9506-4d4e-9ca9-3474c101395c)
+
 
 
