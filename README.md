@@ -159,3 +159,56 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - And: `ollama run name_of_ai` to run your model and talk to it
 
 
+---
+
+# Error Messages You May Come Across
+
+## Verification Failed - No Chat Template in Model
+
+You may come across a model that has no chat template built in and it will give you this error:
+```
+Training pipeline failed: 'Verification failed: "Model cognitivecomputations/WizardLM-7B-Uncensored doesn\'t support chat templates.\\nPlease use a model with configured chat_template in tokenizer."'
+```
+
+If that happens, there is a really easy fix for it. You can simply add in the chat template if it's available for that model such as from ollama or huggingface.
+
+### How to add a chat template to an LLM model
+Simply use the `chat_template_adder.py` file. In that file currently shows how to add in the chat template to the following model: `cognitivecomputations/WizardLM-7B-Uncensored`.
+All you need to do is replace the model in step 1 to your model of choice. It should look like this: 
+```
+# Step 1: Load the original model
+model = AutoModelForCausalLM.from_pretrained("Your_Model_of_Choice")
+```
+
+Then in step 2, replace the model with your model of choice as well as the tokenizer.chat_template with the desired jinja version of your chat template.
+```
+# Step 2: Load or create the modified tokenizer
+tokenizer = AutoTokenizer.from_pretrained("Your_Model_of_Choice")
+tokenizer.chat_template = """{% if messages[0]['role'] == 'system' -%}      # Example template for WizardLM Models
+{{ messages[0]['content'] }}
+{% endif -%}
+{% for message in messages[1:] -%}
+{% if message['role'] == 'user' -%}
+USER: {{ message['content'] }}
+{% else -%}
+ASSISTANT: {{ message['content'] }}
+{% endif -%}
+{% endfor %}"""
+```
+
+Then in step 3, choose a name you will remember for the new files to go like this:
+
+```
+# Step 3: Save the complete model with the modified tokenizer
+model.save_pretrained("./name_of_folder_location")
+tokenizer.save_pretrained("./name_of_folder_location")
+```
+
+
+Then once you have the new model with the chat template built into the tokenizer on your device, simply do the following:
+1. Go to huggingface and login
+2. Create a new public model
+3. upload all the files from the saved folder you made at: ./name_of_folder_location
+4. save your model
+5. Use that model instead as your base model in the `app.py` program and it should work just fine
+
