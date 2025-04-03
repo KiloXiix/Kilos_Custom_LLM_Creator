@@ -211,4 +211,9 @@ Then once you have the new model with the chat template built into the tokenizer
 3. upload all the files from the saved folder you made at: ./name_of_folder_location
 4. save your model
 5. Use that model instead as your base model in the `app.py` program and it should work just fine
+6. Then to use with ollama, you'll need to update your modelfile to match the chat_template now like so:
+
+
+![image](https://github.com/user-attachments/assets/46136ccb-4e32-4a92-94e3-e301d7f8a0a9)
+
 
